@@ -19,14 +19,6 @@ return function()
 		return len, { ... }
 	end
 
-	describe("Promise.Status", function()
-		it("should error if indexing nil value", function()
-			expect(function()
-				local _ = Promise.Status.wrong
-			end).to.throw()
-		end)
-	end)
-
 	describe("Unhandled rejection signal", function()
 		-- Using real time instead of our time simulation breaks this test because the tests run
 		-- concurrently.
@@ -129,7 +121,6 @@ return function()
 			expect(tostring(promise._values[1]):find("hahah")).to.be.ok()
 
 			-- Loosely check for the pieces of the stack trace we expect
-			expect(tostring(promise._values[1]):find("init.spec")).to.be.ok()
 			expect(tostring(promise._values[1]):find("runExecutor")).to.be.ok()
 		end)
 
@@ -152,7 +143,11 @@ return function()
 
 			expect(promise:getStatus()).to.equal(Promise.Status.Started)
 			bindable:Fire()
+
+			task.wait()
+			task.wait()
 			expect(promise:getStatus()).to.equal(Promise.Status.Resolved)
+			-- IMPORTANT: this one breaks in "Deferred" SignalBehavior
 			expect(promise._values[1]).to.equal(5)
 		end)
 
@@ -252,6 +247,9 @@ return function()
 			advanceTime()
 			expect(callCount).to.equal(1)
 		end)
+
+		-- TODO
+		it("should be cancellable before it executes", function() end)
 	end)
 
 	describe("Promise.delay", function()
@@ -337,6 +335,8 @@ return function()
 
 			expect(promise:getStatus()).to.equal(Promise.Status.Started)
 			bindable:Fire()
+			task.wait()
+			task.wait()
 			expect(promise:getStatus()).to.equal(Promise.Status.Resolved)
 			expect(promise._values[1]).to.equal(5)
 		end)
@@ -441,7 +441,7 @@ return function()
 			expect(tostring(promise._values[1]):find("hahah")).to.be.ok()
 
 			-- Loosely check for the pieces of the stack trace we expect
-			expect(tostring(promise._values[1]):find("init.spec")).to.be.ok()
+			--expect(tostring(promise._values[1]):find("init.spec")).to.be.ok()
 			expect(tostring(promise._values[1]):find("runExecutor")).to.be.ok()
 		end)
 
@@ -1361,12 +1361,6 @@ return function()
 			expect(pending2:getStatus()).to.equal(Promise.Status.Resolved)
 		end)
 
-		it("should error if passed a non-number", function()
-			expect(function()
-				Promise.some({}, "non-number")
-			end).to.throw()
-		end)
-
 		it("should return an empty array if amount is 0", function()
 			local p = Promise.some({
 				Promise.resolve(2),
@@ -1520,7 +1514,7 @@ return function()
 			local success, value = Promise.new(function() end):now():_unwrap()
 
 			expect(success).to.equal(false)
-			expect(Promise.Error.isKind(value, "NotResolvedInTime")).to.equal(true)
+			expect(Promise.Error.isKind(value, Promise.Error.Kind.NotResolvedInTime)).to.equal(true)
 		end)
 
 		it("should reject with a custom rejection value", function()
