@@ -82,8 +82,6 @@ function Error.is(value)
 end
 
 function Error.isKind(anything, kind)
-	assert(kind ~= nil, "Argument #2 to Promise.Error.isKind must not be nil")
-
 	return Error.is(anything) and anything.kind == kind
 end
 
@@ -140,8 +138,6 @@ local function packResult(success: boolean, ...)
 end
 
 local function makeErrorHandler(traceback: string)
-	assert(traceback, "traceback is nil")
-
 	return function(err)
 		-- If the error object is already a table, forward it directly.
 		-- Should we extend the error here and add our own trace?
@@ -572,8 +568,6 @@ function Promise.fold(
 	reducer: (accumulator: U, value: T, index: number) -> U | Promise<U>,
 	initialValue: U
 ): Promise
-	assert(isCallable(reducer), "Bad argument #2 to Promise.fold: must be callable")
-
 	local accumulator = Promise.resolve(initialValue)
 	return Promise.each(list, function(resolvedElement, i)
 		accumulator = accumulator:andThen(function(previousValueResolved)
@@ -1697,8 +1691,6 @@ end
 	```
 ]=]
 function Promise.retry(callback: (...any) -> Promise<T>, times: number, ...): Promise
-	assert(isCallable(callback), "Parameter #1 to Promise.retry must be a function")
-
 	local args, length = { ... }, select("#", ...)
 
 	return Promise.resolve(callback(...)):catch(function(...)
@@ -1717,8 +1709,6 @@ end
 	If the amount of retries is exceeded, the function will return the latest rejected Promise.
 ]=]
 function Promise.retryWithDelay(callback: (...any) -> Promise<T>, times: number, seconds: number, ...): Promise
-	assert(isCallable(callback), "Parameter #1 to Promise.retry must be a function")
-
 	local args, length = { ... }, select("#", ...)
 
 	return Promise.resolve(callback(...)):catch(function(...)
