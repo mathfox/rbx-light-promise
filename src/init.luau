@@ -49,10 +49,10 @@ local Error = {}
 Error.__index = Error
 
 Error.Kind = {
-	ExecutionError = 0,
-	AlreadyCancelled = 1,
-	NotResolvedInTime = 2,
-	TimedOut = 3,
+	ExecutionError = "ExecutionError",
+	AlreadyCancelled = "AlreadyCancelled",
+	NotResolvedInTime = "NotResolvedInTime",
+	TimedOut = "TimedOut",
 }
 
 type ErrorOptions = {
@@ -200,10 +200,10 @@ end
 	.Cancelled "Cancelled" -- The Promise was cancelled before it finished.
 ]=]
 local Status = {
-	Started = 0,
-	Resolved = 1,
-	Rejected = 2,
-	Cancelled = 3,
+	Started = "Started",
+	Resolved = "Resolved",
+	Rejected = "Rejected",
+	Cancelled = "Cancelled",
 }
 
 --[=[
