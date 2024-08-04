@@ -1,0 +1,33 @@
+{
+	"name": "@rbxts/promise",
+	"version": "0.0.1",
+	"description": "Lightweight Promise implementation in Luau.",
+	"main": "src/init.lua",
+	"types": "src/index.d.ts",
+	"files": ["src"],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mathfox/rbx-promise.git"
+	},
+	"keywords": ["roblox", "promise"],
+	"author": {
+		"name": "Ivan Leontev",
+		"url": "https://github.com/mathfox"
+	},
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/mathfox/rbx-promise/issues"
+	},
+	"homepage": "https://github.com/mathfox/rbx-promise#readme",
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"roblox-ts": "^2.3.0-dev-8137656",
+		"typescript": "^5.6.0-dev.20240804"
+	},
+	"dependencies": {
+		"@rbxts/compiler-types": "^2.3.0-types.1",
+		"@rbxts/types": "^1.0.794"
+	}
+}
