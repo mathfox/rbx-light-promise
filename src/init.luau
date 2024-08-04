@@ -22,8 +22,6 @@ type Executor = (
 -- TODO: try to make a somewhat correct type
 type Promise = {}
 
-local ERROR_NON_PROMISE_IN_LIST = "Non-promise value passed into %s at index %s"
-local ERROR_NON_FUNCTION = "Please pass a handler function to %s!"
 local MODE_KEY_METATABLE = { __mode = "k" }
 
 local function isCallable(value: unknown): boolean
@@ -223,10 +221,6 @@ local Promise = {
 Promise.__index = Promise
 
 function Promise._new(traceback: string, parent: Promise | nil): Promise
-	if parent and not Promise.is(parent) then
-		error("Argument #2 to Promise._new must be a promise or nil", 2)
-	end
-
 	local self = {
 		-- The executor thread.
 		_thread = nil,
@@ -461,14 +455,6 @@ end
 		* is rejected if ANY input promises reject
 ]]
 function Promise._all(traceback: string, promises: { Promise }, amount: number | nil): Promise
-	-- We need to check that each value is a promise here so that we can produce
-	-- a proper error rather than a rejected promise with our error.
-	for i, promise in promises do
-		if not Promise.is(promise) then
-			error(string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.all", tostring(i)), 3)
-		end
-	end
-
 	-- If there are no values then return an already resolved promise.
 	if #promises == 0 or amount == 0 then
 		return Promise.resolve({})
@@ -652,14 +638,6 @@ end
 	```
 ]=]
 function Promise.allSettled(promises: { Promise }): Promise<Status>
-	-- We need to check that each value is a promise here so that we can produce
-	-- a proper error rather than a rejected promise with our error.
-	for i, promise in promises do
-		if not Promise.is(promise) then
-			error(string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.allSettled", tostring(i)), 2)
-		end
-	end
-
 	-- If there are no values then return an already resolved promise.
 	if #promises == 0 then
 		return Promise.resolve({})
@@ -723,10 +701,6 @@ end
 	```
 ]=]
 function Promise.race(promises: { Promise }): Promise
-	for i, promise in promises do
-		assert(Promise.is(promise), string.format(ERROR_NON_PROMISE_IN_LIST, "Promise.race", tostring(i)))
-	end
-
 	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve, reject, onCancel)
 		local newPromises = {}
 		local finished = false
@@ -812,8 +786,6 @@ end
 
 ]=]
 function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: number) -> U | Promise<U>): Promise<{ U }>
-	assert(isCallable(predicate), string.format(ERROR_NON_FUNCTION, "Promise.each"))
-
 	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve, reject, onCancel)
 		local results = {}
 		local promisesToCancel = {}
@@ -821,7 +793,7 @@ function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: num
 		local cancelled = false
 
 		local function cancel()
-			for _, promiseToCancel in ipairs(promisesToCancel) do
+			for _, promiseToCancel in promisesToCancel do
 				promiseToCancel:cancel()
 			end
 		end
@@ -1111,10 +1083,7 @@ end
 	To run code no matter what, use [Promise:finally].
 	:::
 ]=]
-function Promise:andThen(successHandler: AnyFunction, failureHandler: AnyFunction): Promise
-	assert(successHandler == nil or isCallable(successHandler), string.format(ERROR_NON_FUNCTION, "Promise:andThen"))
-	assert(failureHandler == nil or isCallable(failureHandler), string.format(ERROR_NON_FUNCTION, "Promise:andThen"))
-
+function Promise:andThen(successHandler: AnyFunction?, failureHandler: AnyFunction?): Promise
 	return self:_andThen(debug.traceback(nil, 2), successHandler, failureHandler)
 end
 
@@ -1137,8 +1106,7 @@ Promise["then"] = Promise.andThen
 	To run code no matter what, use [Promise:finally].
 	:::
 ]=]
-function Promise:catch(failureHandler: AnyFunction): Promise
-	assert(failureHandler == nil or isCallable(failureHandler), string.format(ERROR_NON_FUNCTION, "Promise:catch"))
+function Promise:catch(failureHandler: AnyFunction?): Promise
 	return self:_andThen(debug.traceback(nil, 2), nil, failureHandler)
 end
 
@@ -1156,7 +1124,6 @@ end
 	If you return a Promise from the tap handler callback, its value will be discarded but `tap` will still wait until it resolves before passing the original value through.
 ]=]
 function Promise:tap(tapHandler: AnyFunction)
-	assert(isCallable(tapHandler), string.format(ERROR_NON_FUNCTION, "Promise:tap"))
 	return self:_andThen(debug.traceback(nil, 2), function(...)
 		local callbackReturn = tapHandler(...)
 
@@ -1187,7 +1154,6 @@ end
 	```
 ]=]
 function Promise:andThenCall(callback: AnyFunction, ...): Promise
-	assert(isCallable(callback), string.format(ERROR_NON_FUNCTION, "Promise:andThenCall"))
 	local length, values = pack(...)
 	return self:_andThen(debug.traceback(nil, 2), function()
 		return callback(unpack(values, 1, length))
@@ -1378,8 +1344,7 @@ end
 
 	```
 ]=]
-function Promise:finally(finallyHandler: AnyFunction)
-	assert(finallyHandler == nil or isCallable(finallyHandler), string.format(ERROR_NON_FUNCTION, "Promise:finally"))
+function Promise:finally(finallyHandler: AnyFunction?)
 	return self:_finally(debug.traceback(nil, 2), finallyHandler)
 end
 
@@ -1389,7 +1354,6 @@ end
 	Attaches a `finally` handler to this Promise that calls the given callback with the predefined arguments.
 ]=]
 function Promise:finallyCall(callback: AnyFunction, ...): Promise
-	assert(isCallable(callback), string.format(ERROR_NON_FUNCTION, "Promise:finallyCall"))
 	local length, values = pack(...)
 	return self:_finally(debug.traceback(nil, 2), function()
 		return callback(unpack(values, 1, length))
