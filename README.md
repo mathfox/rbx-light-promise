@@ -1,1 +1,1 @@
-# rbx-promise
+# rbx-light-promise
