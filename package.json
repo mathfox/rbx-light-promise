@@ -1,5 +1,5 @@
 {
-	"name": "@rbxts/promise",
+	"name": "@rbxts/light-promise",
 	"version": "0.0.1",
 	"description": "Lightweight Promise implementation in Luau.",
 	"main": "src/init.lua",
@@ -7,18 +7,18 @@
 	"files": ["src"],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/mathfox/rbx-promise.git"
+		"url": "git+https://github.com/mathfox/rbx-light-promise.git"
 	},
-	"keywords": ["roblox", "promise"],
+	"keywords": ["roblox", "promise", "light-promise", "future"],
 	"author": {
 		"name": "Ivan Leontev",
 		"url": "https://github.com/mathfox"
 	},
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/mathfox/rbx-promise/issues"
+		"url": "https://github.com/mathfox/rbx-light-promise/issues"
 	},
-	"homepage": "https://github.com/mathfox/rbx-promise#readme",
+	"homepage": "https://github.com/mathfox/rbx-light-promise#readme",
 	"publishConfig": {
 		"access": "public"
 	},
