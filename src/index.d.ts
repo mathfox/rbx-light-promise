@@ -166,7 +166,7 @@ interface LightPromise<T> {
 	finally<const TResult = never>(
 		this: LightPromise<T>,
 		onSettled?: (
-			status: LightPromiseConstructor["Status"],
+			status: LightPromiseConstructor["Status"][keyof LightPromiseConstructor["Status"]],
 		) => LightPromise<TResult> | void,
 	): LightPromise<T | TResult>;
 
