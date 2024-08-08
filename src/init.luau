@@ -252,6 +252,9 @@ function LightPromise._new(traceback: string, parent: LightPromise | nil): Light
 		_consumers = setmetatable({}, MODE_KEY_METATABLE),
 	}
 
+	-- TypeScript support
+	self["then"] = LightPromise.andThen
+
 	if parent and parent._status == LightPromise.Status.Started then
 		parent._consumers[self] = true
 	end
@@ -1081,9 +1084,6 @@ end
 function LightPromise:andThen(successHandler: AnyFunction?, failureHandler: AnyFunction?): LightPromise
 	return self:_andThen(debug.traceback(nil, 2), successHandler, failureHandler)
 end
-
--- TypeScript support
-LightPromise["then"] = LightPromise.andThen
 
 --[=[
 	Shorthand for `Promise:andThen(nil, failureHandler)`.
