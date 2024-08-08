@@ -1,4 +1,4 @@
-declare namespace LightPromise {
+export namespace LightPromise {
 	namespace Error {
 		type Kind =
 			| "ExecutionError"
@@ -50,7 +50,7 @@ declare namespace LightPromise {
 /**
  * Works both with the `Promise` and `LightPromise`.
  */
-interface LightPromiseLike<T> {
+export interface LightPromiseLike<T> {
 	/**
 	 * Chains onto an existing LightPromise and returns a new LightPromise.
 	 * > Within the failure handler, you should never assume that the rejection value is a string. Some rejections within the LightPromise library are represented by Error objects. If you want to treat it as a string for debugging, you should call `tostring` on it first.
@@ -69,7 +69,7 @@ interface LightPromiseLike<T> {
 /**
  * Represents the completion of an asynchronous operation
  */
-interface LightPromise<T> {
+export interface LightPromise<T> {
 	/**
 	 * Chains onto an existing LightPromise and returns a new LightPromise.
 	 * > Within the failure handler, you should never assume that the rejection value is a string. Some rejections within the LightPromise library are represented by Error objects. If you want to treat it as a string for debugging, you should call `tostring` on it first.
@@ -320,7 +320,7 @@ interface LightPromise<T> {
 	getStatus(this: LightPromise<T>): LightPromise.Status;
 }
 
-interface LightPromiseConstructor {
+export interface LightPromiseConstructor {
 	readonly Status: {
 		/** The LightPromise is executing, and not settled yet. */
 		readonly Started: "Started";
@@ -697,4 +697,4 @@ interface LightPromiseConstructor {
 	) => () => void;
 }
 
-declare const LightPromise: LightPromiseConstructor;
+export declare const LightPromise: LightPromiseConstructor;
