@@ -874,29 +874,14 @@ function LightPromise.each(
 end
 
 --[=[
-	Checks whether the given object is a Promise via duck typing. This only checks if the object is a table and has an `andThen` method.
+	Checks whether the given object is a Promise.
 ]=]
 function LightPromise.is(value: unknown): boolean
 	if type(value) ~= "table" then
 		return false
 	end
 
-	local objectMetatable = getmetatable(value)
-
-	if objectMetatable == LightPromise then
-		-- The Promise came from this library.
-		return true
-	elseif objectMetatable == nil then
-		-- No metatable, but we should still chain onto tables with andThen methods
-		return isCallable(value.andThen)
-	elseif type(objectMetatable) == "table" then
-		local t = rawget(objectMetatable, "__index")
-
-		-- Maybe this came from a different or older Promise library.
-		return type(t) == "table" and isCallable(rawget(t, "andThen"))
-	end
-
-	return false
+	return getmetatable(value) == LightPromise
 end
 
 --[=[
