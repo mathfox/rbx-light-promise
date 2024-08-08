@@ -20,7 +20,7 @@ type Executor = (
 ) -> ()
 
 -- TODO: try to make a somewhat correct type
-type Promise = {}
+type LightPromise = {}
 
 local MODE_KEY_METATABLE = { __mode = "k" }
 
@@ -105,7 +105,7 @@ end
 
 function Error:__tostring()
 	local errorStrings = {
-		string.format("-- Promise.Error(%s) --", self.kind or "?"),
+		string.format("-- LightPromise.Error(%s) --", self.kind or "?"),
 	}
 
 	for _, runtimeError in ipairs(self:getErrorChain()) do
@@ -204,19 +204,17 @@ local Status = {
 	A Promise is an object that represents a value that will exist in the future, but doesn't right now.
 	Promises allow you to then attach callbacks that can run once the value becomes available (known as *resolving*),
 	or if an error has occurred (known as *rejecting*).
-
-	@class Promise
 ]=]
-local Promise = {
+local LightPromise = {
 	Error = Error,
 	Status = Status,
 	_getTime = os.clock,
 	_timeEvent = game:GetService("RunService").Heartbeat,
 	_unhandledRejectionCallbacks = {},
 }
-Promise.__index = Promise
+LightPromise.__index = LightPromise
 
-function Promise._new(traceback: string, parent: Promise | nil): Promise
+function LightPromise._new(traceback: string, parent: LightPromise | nil): LightPromise
 	local self = {
 		-- The executor thread.
 		_thread = nil,
@@ -254,16 +252,16 @@ function Promise._new(traceback: string, parent: Promise | nil): Promise
 		_consumers = setmetatable({}, MODE_KEY_METATABLE),
 	}
 
-	if parent and parent._status == Promise.Status.Started then
+	if parent and parent._status == LightPromise.Status.Started then
 		parent._consumers[self] = true
 	end
 
-	setmetatable(self, Promise)
+	setmetatable(self, LightPromise)
 
 	return self
 end
 
-function Promise:_runExecutor(executor: Executor)
+function LightPromise:_runExecutor(executor: Executor)
 	local function reject(...)
 		self:_reject(...)
 	end
@@ -274,14 +272,14 @@ function Promise:_runExecutor(executor: Executor)
 
 	local function onCancel(cancellationHook)
 		if cancellationHook then
-			if self._status == Promise.Status.Cancelled then
+			if self._status == LightPromise.Status.Cancelled then
 				cancellationHook()
 			else
 				self._cancellationHook = cancellationHook
 			end
 		end
 
-		return self._status == Promise.Status.Cancelled
+		return self._status == LightPromise.Status.Cancelled
 	end
 
 	local ok, _, result = runExecutor(self._source, executor, resolve, reject, onCancel)
@@ -291,8 +289,8 @@ function Promise:_runExecutor(executor: Executor)
 	end
 end
 
-function Promise._newWithTraceback(traceback: string, executor: Executor, parent: Promise | nil): Promise
-	local promise = Promise._new(traceback, parent)
+function LightPromise._newWithTraceback(traceback: string, executor: Executor, parent: LightPromise | nil): LightPromise
+	local promise = LightPromise._new(traceback, parent)
 	promise._thread = coroutine.create(function()
 		promise:_runExecutor(executor)
 	end)
@@ -335,11 +333,11 @@ end
 	You must perform any cleanup code in the cancellation hook: any time your executor yields, it **may never resume**.
 	:::
 ]=]
-function Promise.new(executor: Executor): Promise
-	return Promise._newWithTraceback(debug.traceback(nil, 2), executor)
+function LightPromise.new(executor: Executor): LightPromise
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), executor)
 end
 
-function Promise:__tostring(): string
+function LightPromise:__tostring(): string
 	return string.format("Promise(%s)", self._status)
 end
 
@@ -358,8 +356,8 @@ end
 	end
 	```
 ]=]
-function Promise.defer(executor: Executor): Promise
-	local promise = Promise._new(debug.traceback(nil, 2))
+function LightPromise.defer(executor: Executor): LightPromise
+	local promise = LightPromise._new(debug.traceback(nil, 2))
 	promise._thread = task.defer(function()
 		promise:_runExecutor(executor)
 	end)
@@ -387,9 +385,9 @@ end
 
 	@param ... Values to resolve with
 ]=]
-function Promise.resolve(...): Promise
+function LightPromise.resolve(...): LightPromise
 	local length, values = pack(...)
-	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve)
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), function(resolve)
 		resolve(unpack(values, 1, length))
 	end)
 end
@@ -403,9 +401,9 @@ end
 
 	@param ... Values to reject with
 ]=]
-function Promise.reject(...): Promise
+function LightPromise.reject(...): LightPromise
 	local length, values = pack(...)
-	return Promise._newWithTraceback(debug.traceback(nil, 2), function(_, reject)
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), function(_, reject)
 		reject(unpack(values, 1, length))
 	end)
 end
@@ -413,9 +411,9 @@ end
 --[[
 	Runs a non-promise-returning function as a Promise with the given arguments.
 ]]
-function Promise._try(traceback: string, callback: AnyFunction, ...): Promise
+function LightPromise._try(traceback: string, callback: AnyFunction, ...): LightPromise
 	local length, values = pack(...)
-	return Promise._newWithTraceback(traceback, function(resolve)
+	return LightPromise._newWithTraceback(traceback, function(resolve)
 		resolve(callback(unpack(values, 1, length)))
 	end)
 end
@@ -441,8 +439,8 @@ end
 
 	@param ... Values to pass to `callback`
 ]=]
-function Promise.try(callback: AnyFunction, ...): Promise
-	return Promise._try(debug.traceback(nil, 2), callback, ...)
+function LightPromise.try(callback: AnyFunction, ...): LightPromise
+	return LightPromise._try(debug.traceback(nil, 2), callback, ...)
 end
 
 --[[
@@ -450,13 +448,13 @@ end
 		* is resolved when all input promises resolve
 		* is rejected if ANY input promises reject
 ]]
-function Promise._all(traceback: string, promises: { Promise }, amount: number | nil): Promise
+function LightPromise._all(traceback: string, promises: { Promise }, amount: number | nil): LightPromise
 	-- If there are no values then return an already resolved promise.
 	if #promises == 0 or amount == 0 then
-		return Promise.resolve({})
+		return LightPromise.resolve({})
 	end
 
-	return Promise._newWithTraceback(traceback, function(resolve, reject, onCancel)
+	return LightPromise._newWithTraceback(traceback, function(resolve, reject, onCancel)
 		-- An array to contain our resolved values from the given promises.
 		local resolvedValues = {}
 		local newPromises = {}
@@ -539,8 +537,8 @@ end
 	return Promise.all(promises)
 	```
 ]=]
-function Promise.all(promises: { Promise }): Promise
-	return Promise._all(debug.traceback(nil, 2), promises)
+function LightPromise.all(promises: { Promise }): LightPromise
+	return LightPromise._all(debug.traceback(nil, 2), promises)
 end
 
 --[=[
@@ -563,13 +561,13 @@ end
 	end, 0)
 	```
 ]=]
-function Promise.fold(
+function LightPromise.fold(
 	list: { T | Promise<T> },
 	reducer: (accumulator: U, value: T, index: number) -> U | Promise<U>,
 	initialValue: U
-): Promise
-	local accumulator = Promise.resolve(initialValue)
-	return Promise.each(list, function(resolvedElement, i)
+): LightPromise
+	local accumulator = LightPromise.resolve(initialValue)
+	return LightPromise.each(list, function(resolvedElement, i)
 		accumulator = accumulator:andThen(function(previousValueResolved)
 			return reducer(previousValueResolved, resolvedElement, i)
 		end)
@@ -593,8 +591,8 @@ end
 	return Promise.some(promises, 2) -- Only resolves with first 2 promises to resolve
 	```
 ]=]
-function Promise.some(promises: { Promise }, count: number): Promise
-	return Promise._all(debug.traceback(nil, 2), promises, count)
+function LightPromise.some(promises: { Promise }, count: number): LightPromise
+	return LightPromise._all(debug.traceback(nil, 2), promises, count)
 end
 
 --[=[
@@ -612,8 +610,8 @@ end
 	return Promise.any(promises) -- Resolves with first value to resolve (only rejects if all 3 rejected)
 	```
 ]=]
-function Promise.any(promises: { Promise }): Promise
-	return Promise._all(debug.traceback(nil, 2), promises, 1):andThen(function(values)
+function LightPromise.any(promises: { Promise }): LightPromise
+	return LightPromise._all(debug.traceback(nil, 2), promises, 1):andThen(function(values)
 		return values[1]
 	end)
 end
@@ -631,13 +629,13 @@ end
 	return Promise.allSettled(promises)
 	```
 ]=]
-function Promise.allSettled(promises: { Promise }): Promise<Status>
+function LightPromise.allSettled(promises: { Promise }): LightPromise<Status>
 	-- If there are no values then return an already resolved promise.
 	if #promises == 0 then
-		return Promise.resolve({})
+		return LightPromise.resolve({})
 	end
 
-	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve, _, onCancel)
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), function(resolve, _, onCancel)
 		-- An array to contain our resolved values from the given promises.
 		local fates = {}
 		local newPromises = {}
@@ -694,8 +692,8 @@ end
 	return Promise.race(promises) -- Only returns 1st value to resolve or reject
 	```
 ]=]
-function Promise.race(promises: { Promise }): Promise
-	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+function LightPromise.race(promises: { Promise }): LightPromise
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), function(resolve, reject, onCancel)
 		local newPromises = {}
 		local finished = false
 
@@ -779,8 +777,11 @@ end
 	- The Promise returned from the currently active predicate will be cancelled if it hasn't resolved yet.
 
 ]=]
-function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: number) -> U | Promise<U>): Promise<{ U }>
-	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve, reject, onCancel)
+function LightPromise.each(
+	list: { T | Promise<T> },
+	predicate: (value: T, index: number) -> U | Promise<U>
+): LightPromise<{ U }>
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), function(resolve, reject, onCancel)
 		local results = {}
 		local promisesToCancel = {}
 
@@ -807,8 +808,8 @@ function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: num
 		local preprocessedList = {}
 
 		for index, value in ipairs(list) do
-			if Promise.is(value) then
-				if value:getStatus() == Promise.Status.Cancelled then
+			if LightPromise.is(value) then
+				if value:getStatus() == LightPromise.Status.Cancelled then
 					cancel()
 					return reject(Error.new({
 						error = "Promise is cancelled",
@@ -819,7 +820,7 @@ function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: num
 							value._source
 						),
 					}))
-				elseif value:getStatus() == Promise.Status.Rejected then
+				elseif value:getStatus() == LightPromise.Status.Rejected then
 					cancel()
 					return reject(select(2, value:await()))
 				end
@@ -837,7 +838,7 @@ function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: num
 		end
 
 		for index, value in ipairs(preprocessedList) do
-			if Promise.is(value) then
+			if LightPromise.is(value) then
 				local success
 				success, value = value:await()
 
@@ -851,7 +852,7 @@ function Promise.each(list: { T | Promise<T> }, predicate: (value: T, index: num
 				return
 			end
 
-			local predicatePromise = Promise.resolve(predicate(value, index))
+			local predicatePromise = LightPromise.resolve(predicate(value, index))
 
 			table.insert(promisesToCancel, predicatePromise)
 
@@ -872,14 +873,14 @@ end
 --[=[
 	Checks whether the given object is a Promise via duck typing. This only checks if the object is a table and has an `andThen` method.
 ]=]
-function Promise.is(value: unknown): boolean
+function LightPromise.is(value: unknown): boolean
 	if type(value) ~= "table" then
 		return false
 	end
 
 	local objectMetatable = getmetatable(value)
 
-	if objectMetatable == Promise then
+	if objectMetatable == LightPromise then
 		-- The Promise came from this library.
 		return true
 	elseif objectMetatable == nil then
@@ -916,9 +917,9 @@ end
 	end)
 	```
 ]=]
-function Promise.promisify(callback: AnyFunction): Promise
+function LightPromise.promisify(callback: AnyFunction): LightPromise
 	return function(...)
-		return Promise._try(debug.traceback(nil, 2), callback, ...)
+		return LightPromise._try(debug.traceback(nil, 2), callback, ...)
 	end
 end
 
@@ -935,12 +936,12 @@ end
 		Promise.delay(5):andThenCall(print, "This prints after 5 seconds")
 	```
 ]=]
-function Promise.delay(seconds: number?): Promise<number>
-	local startTime = Promise._getTime()
-	local promise = Promise._new(debug.traceback(nil, 2))
+function LightPromise.delay(seconds: number?): LightPromise<number>
+	local startTime = LightPromise._getTime()
+	local promise = LightPromise._new(debug.traceback(nil, 2))
 	promise._thread = task.delay(seconds, function()
 		promise:_runExecutor(function(resolve)
-			resolve(Promise._getTime() - startTime)
+			resolve(LightPromise._getTime() - startTime)
 		end)
 	end)
 	return promise
@@ -980,12 +981,12 @@ end
 	})
 	```
 ]=]
-function Promise:timeout(seconds: number, rejectionValue: unknown): Promise
+function LightPromise:timeout(seconds: number, rejectionValue: unknown): LightPromise
 	local traceback = debug.traceback(nil, 2)
 
-	return Promise.race({
-		Promise.delay(seconds):andThen(function()
-			return Promise.reject(rejectionValue == nil and Error.new({
+	return LightPromise.race({
+		LightPromise.delay(seconds):andThen(function()
+			return LightPromise.reject(rejectionValue == nil and Error.new({
 				kind = Error.Kind.TimedOut,
 				error = "Timed out",
 				context = string.format(
@@ -1002,7 +1003,7 @@ end
 --[=[
 	Returns the current Promise status.
 ]=]
-function Promise:getStatus(): Status
+function LightPromise:getStatus(): Status
 	return self._status
 end
 
@@ -1011,19 +1012,19 @@ end
 
 	The given callbacks are invoked depending on that result.
 ]]
-function Promise:_andThen(traceback: string, successHandler: AnyFunction, failureHandler: AnyFunction)
+function LightPromise:_andThen(traceback: string, successHandler: AnyFunction, failureHandler: AnyFunction)
 	self._unhandledRejection = false
 
 	-- If we are already cancelled, we return a cancelled Promise
-	if self._status == Promise.Status.Cancelled then
-		local promise = Promise.new(function() end)
+	if self._status == LightPromise.Status.Cancelled then
+		local promise = LightPromise.new(function() end)
 		promise:cancel()
 
 		return promise
 	end
 
 	-- Create a new promise to follow this part of the chain
-	return Promise._newWithTraceback(traceback, function(resolve, reject, onCancel)
+	return LightPromise._newWithTraceback(traceback, function(resolve, reject, onCancel)
 		-- Our default callbacks just pass values onto the next promise.
 		-- This lets success and failure cascade correctly!
 
@@ -1037,7 +1038,7 @@ function Promise:_andThen(traceback: string, successHandler: AnyFunction, failur
 			failureCallback = createAdvancer(traceback, failureHandler, resolve, reject)
 		end
 
-		if self._status == Promise.Status.Started then
+		if self._status == LightPromise.Status.Started then
 			-- If we haven't resolved yet, put ourselves into the queue
 			table.insert(self._queuedResolve, successCallback)
 			table.insert(self._queuedReject, failureCallback)
@@ -1045,15 +1046,15 @@ function Promise:_andThen(traceback: string, successHandler: AnyFunction, failur
 			onCancel(function()
 				-- These are guaranteed to exist because the cancellation handler is guaranteed to only
 				-- be called at most once
-				if self._status == Promise.Status.Started then
+				if self._status == LightPromise.Status.Started then
 					table.remove(self._queuedResolve, table.find(self._queuedResolve, successCallback))
 					table.remove(self._queuedReject, table.find(self._queuedReject, failureCallback))
 				end
 			end)
-		elseif self._status == Promise.Status.Resolved then
+		elseif self._status == LightPromise.Status.Resolved then
 			-- This promise has already resolved! Trigger success immediately.
 			successCallback(unpack(self._values, 1, self._valuesLength))
-		elseif self._status == Promise.Status.Rejected then
+		elseif self._status == LightPromise.Status.Rejected then
 			-- This promise died a terrible death! Trigger failure immediately.
 			failureCallback(unpack(self._values, 1, self._valuesLength))
 		end
@@ -1077,11 +1078,12 @@ end
 	To run code no matter what, use [Promise:finally].
 	:::
 ]=]
-function Promise:andThen(successHandler: AnyFunction?, failureHandler: AnyFunction?): Promise
+function LightPromise:andThen(successHandler: AnyFunction?, failureHandler: AnyFunction?): LightPromise
 	return self:_andThen(debug.traceback(nil, 2), successHandler, failureHandler)
 end
 
-Promise["then"] = Promise.andThen
+-- TypeScript support
+LightPromise["then"] = LightPromise.andThen
 
 --[=[
 	Shorthand for `Promise:andThen(nil, failureHandler)`.
@@ -1100,7 +1102,7 @@ Promise["then"] = Promise.andThen
 	To run code no matter what, use [Promise:finally].
 	:::
 ]=]
-function Promise:catch(failureHandler: AnyFunction?): Promise
+function LightPromise:catch(failureHandler: AnyFunction?): LightPromise
 	return self:_andThen(debug.traceback(nil, 2), nil, failureHandler)
 end
 
@@ -1117,11 +1119,11 @@ end
 
 	If you return a Promise from the tap handler callback, its value will be discarded but `tap` will still wait until it resolves before passing the original value through.
 ]=]
-function Promise:tap(tapHandler: AnyFunction)
+function LightPromise:tap(tapHandler: AnyFunction)
 	return self:_andThen(debug.traceback(nil, 2), function(...)
 		local callbackReturn = tapHandler(...)
 
-		if Promise.is(callbackReturn) then
+		if LightPromise.is(callbackReturn) then
 			local length, values = pack(...)
 			return callbackReturn:andThen(function()
 				return unpack(values, 1, length)
@@ -1147,7 +1149,7 @@ end
 		end)
 	```
 ]=]
-function Promise:andThenCall(callback: AnyFunction, ...): Promise
+function LightPromise:andThenCall(callback: AnyFunction, ...): LightPromise
 	local length, values = pack(...)
 	return self:_andThen(debug.traceback(nil, 2), function()
 		return callback(unpack(values, 1, length))
@@ -1174,7 +1176,7 @@ end
 	:::
 
 ]=]
-function Promise:andThenReturn(...): Promise
+function LightPromise:andThenReturn(...): LightPromise
 	local length, values = pack(...)
 	return self:_andThen(debug.traceback(nil, 2), function()
 		return unpack(values, 1, length)
@@ -1192,12 +1194,12 @@ end
 		promise:cancel()
 	```
 ]=]
-function Promise:cancel()
-	if self._status ~= Promise.Status.Started then
+function LightPromise:cancel()
+	if self._status ~= LightPromise.Status.Started then
 		return
 	end
 
-	self._status = Promise.Status.Cancelled
+	self._status = LightPromise.Status.Cancelled
 
 	if self._cancellationHook then
 		self._cancellationHook()
@@ -1220,8 +1222,8 @@ end
 	Used to decrease the number of consumers by 1, and if there are no more,
 	cancel this promise.
 ]]
-function Promise:_consumerCancelled(consumer)
-	if self._status ~= Promise.Status.Started then
+function LightPromise:_consumerCancelled(consumer)
+	if self._status ~= LightPromise.Status.Started then
 		return
 	end
 
@@ -1236,10 +1238,10 @@ end
 	Used to set a handler for when the promise resolves, rejects, or is
 	cancelled.
 ]]
-function Promise:_finally(traceback: string, finallyHandler: AnyFunction)
+function LightPromise:_finally(traceback: string, finallyHandler: AnyFunction)
 	self._unhandledRejection = false
 
-	local promise = Promise._newWithTraceback(traceback, function(resolve, reject, onCancel)
+	local promise = LightPromise._newWithTraceback(traceback, function(resolve, reject, onCancel)
 		local handlerPromise
 
 		onCancel(function()
@@ -1262,12 +1264,12 @@ function Promise:_finally(traceback: string, finallyHandler: AnyFunction)
 					return reject(result)
 				end
 
-				if Promise.is(result) then
+				if LightPromise.is(result) then
 					handlerPromise = result
 
 					result
 						:finally(function(status)
-							if status ~= Promise.Status.Rejected then
+							if status ~= LightPromise.Status.Rejected then
 								resolve(self)
 							end
 						end)
@@ -1280,7 +1282,7 @@ function Promise:_finally(traceback: string, finallyHandler: AnyFunction)
 			end
 		end
 
-		if self._status == Promise.Status.Started then
+		if self._status == LightPromise.Status.Started then
 			-- The promise is not settled, so queue this.
 			table.insert(self._queuedFinally, finallyCallback)
 		else
@@ -1338,7 +1340,7 @@ end
 
 	```
 ]=]
-function Promise:finally(finallyHandler: AnyFunction?)
+function LightPromise:finally(finallyHandler: AnyFunction?)
 	return self:_finally(debug.traceback(nil, 2), finallyHandler)
 end
 
@@ -1347,7 +1349,7 @@ end
 
 	Attaches a `finally` handler to this Promise that calls the given callback with the predefined arguments.
 ]=]
-function Promise:finallyCall(callback: AnyFunction, ...): Promise
+function LightPromise:finallyCall(callback: AnyFunction, ...): LightPromise
 	local length, values = pack(...)
 	return self:_finally(debug.traceback(nil, 2), function()
 		return callback(unpack(values, 1, length))
@@ -1369,7 +1371,7 @@ end
 		end)
 	```
 ]=]
-function Promise:finallyReturn(...): Promise
+function LightPromise:finallyReturn(...): LightPromise
 	local length, values = pack(...)
 	return self:_finally(debug.traceback(nil, 2), function()
 		return unpack(values, 1, length)
@@ -1381,10 +1383,10 @@ end
 
 	@yields
 ]=]
-function Promise:awaitStatus(): (Status, ...any)
+function LightPromise:awaitStatus(): (Status, ...any)
 	self._unhandledRejection = false
 
-	if self._status == Promise.Status.Started then
+	if self._status == LightPromise.Status.Started then
 		local thread = coroutine.running()
 
 		self
@@ -1400,9 +1402,9 @@ function Promise:awaitStatus(): (Status, ...any)
 		coroutine.yield()
 	end
 
-	if self._status == Promise.Status.Resolved then
+	if self._status == LightPromise.Status.Resolved then
 		return self._status, unpack(self._values, 1, self._valuesLength)
-	elseif self._status == Promise.Status.Rejected then
+	elseif self._status == LightPromise.Status.Rejected then
 		return self._status, unpack(self._values, 1, self._valuesLength)
 	end
 
@@ -1410,7 +1412,7 @@ function Promise:awaitStatus(): (Status, ...any)
 end
 
 local function awaitHelper(status, ...)
-	return status == Promise.Status.Resolved, ...
+	return status == LightPromise.Status.Resolved, ...
 end
 
 --[=[
@@ -1434,12 +1436,12 @@ end
 	@return `true` if the Promise successfully resolved
 	@return The values the Promise resolved or rejected with.
 ]=]
-function Promise:await(): (boolean, ...any)
+function LightPromise:await(): (boolean, ...any)
 	return awaitHelper(self:awaitStatus())
 end
 
 local function expectHelper(status, ...)
-	if status ~= Promise.Status.Resolved then
+	if status ~= LightPromise.Status.Resolved then
 		error((...) == nil and "Expected Promise rejected with no value." or (...), 3)
 	end
 
@@ -1471,7 +1473,7 @@ end
 	@yields
 	@return ... The values the Promise resolved with.
 ]=]
-function Promise:expect()
+function LightPromise:expect()
 	return expectHelper(self:awaitStatus())
 end
 
@@ -1482,26 +1484,26 @@ end
 	_unwrap will throw. This indicates an assumption that a promise has
 	resolved.
 ]]
-function Promise:_unwrap()
-	if self._status == Promise.Status.Started then
+function LightPromise:_unwrap()
+	if self._status == LightPromise.Status.Started then
 		error("Promise has not resolved or rejected.", 2)
 	end
 
-	local success = self._status == Promise.Status.Resolved
+	local success = self._status == LightPromise.Status.Resolved
 
 	return success, unpack(self._values, 1, self._valuesLength)
 end
 
-function Promise:_resolve(...)
-	if self._status ~= Promise.Status.Started then
-		if Promise.is((...)) then
+function LightPromise:_resolve(...)
+	if self._status ~= LightPromise.Status.Started then
+		if LightPromise.is((...)) then
 			(...):_consumerCancelled(self)
 		end
 		return
 	end
 
 	-- If the resolved value was a Promise, we chain onto it!
-	if Promise.is((...)) then
+	if LightPromise.is((...)) then
 		-- Without this warning, arguments sometimes mysteriously disappear
 		if select("#", ...) > 1 then
 			local message = string.format(
@@ -1541,9 +1543,9 @@ function Promise:_resolve(...)
 			self:_reject(...)
 		end)
 
-		if promise._status == Promise.Status.Cancelled then
+		if promise._status == LightPromise.Status.Cancelled then
 			self:cancel()
-		elseif promise._status == Promise.Status.Started then
+		elseif promise._status == LightPromise.Status.Started then
 			-- Adopt ourselves into promise for cancellation propagation.
 			self._parent = promise
 			promise._consumers[self] = true
@@ -1552,7 +1554,7 @@ function Promise:_resolve(...)
 		return
 	end
 
-	self._status = Promise.Status.Resolved
+	self._status = LightPromise.Status.Resolved
 	self._valuesLength, self._values = pack(...)
 
 	-- We assume that these callbacks will not throw errors.
@@ -1563,12 +1565,12 @@ function Promise:_resolve(...)
 	self:_finalize()
 end
 
-function Promise:_reject(...)
-	if self._status ~= Promise.Status.Started then
+function LightPromise:_reject(...)
+	if self._status ~= LightPromise.Status.Started then
 		return
 	end
 
-	self._status = Promise.Status.Rejected
+	self._status = LightPromise.Status.Rejected
 	self._valuesLength, self._values = pack(...)
 
 	-- If there are any rejection handlers, call those!
@@ -1586,7 +1588,7 @@ function Promise:_reject(...)
 		local err = tostring((...))
 
 		task.spawn(function()
-			Promise._timeEvent:Wait()
+			LightPromise._timeEvent:Wait()
 
 			-- Someone observed the error, hooray!
 			if not self._unhandledRejection then
@@ -1596,11 +1598,11 @@ function Promise:_reject(...)
 			-- Build a reasonable message
 			local message = string.format("Unhandled Promise rejection:\n\n%s\n\n%s", err, self._source)
 
-			for _, callback in ipairs(Promise._unhandledRejectionCallbacks) do
+			for _, callback in ipairs(LightPromise._unhandledRejectionCallbacks) do
 				task.spawn(callback, self, unpack(self._values, 1, self._valuesLength))
 			end
 
-			if Promise.TEST then
+			if LightPromise.TEST then
 				-- Don't spam output when we're running tests.
 				return
 			end
@@ -1617,7 +1619,7 @@ end
 	queue because we must call all of the finally callbacks upon a success,
 	failure, *and* cancellation.
 ]]
-function Promise:_finalize()
+function LightPromise:_finalize()
 	for _, callback in ipairs(self._queuedFinally) do
 		-- Purposefully not passing values to callbacks here, as it could be the
 		-- resolved values, or rejected errors. If the developer needs the values,
@@ -1630,7 +1632,7 @@ function Promise:_finalize()
 	self._queuedResolve = nil
 
 	-- Clear references to other Promises to allow gc
-	if not Promise.TEST then
+	if not LightPromise.TEST then
 		self._parent = nil
 		self._consumers = nil
 	end
@@ -1651,14 +1653,14 @@ end
 
 	If this Promise is still running, Rejected, or Cancelled, the Promise returned from `:now()` will reject with the `rejectionValue` if passed, otherwise with a `Promise.Error(Promise.Error.Kind.NotResolvedInTime)`. This can be checked with [[Error.isKind]].
 ]=]
-function Promise:now(rejectionValue): Promise
+function LightPromise:now(rejectionValue): LightPromise
 	local traceback = debug.traceback(nil, 2)
-	if self._status == Promise.Status.Resolved then
+	if self._status == LightPromise.Status.Resolved then
 		return self:_andThen(traceback, function(...)
 			return ...
 		end)
 	else
-		return Promise.reject(rejectionValue == nil and Error.new({
+		return LightPromise.reject(rejectionValue == nil and Error.new({
 			kind = Error.Kind.NotResolvedInTime,
 			error = "This Promise was not resolved in time for :now()",
 			context = ":now() was called at:\n\n" .. traceback,
@@ -1690,14 +1692,14 @@ end
 	local value = Promise.retry(canFail, MAX_RETRIES, "foo", "bar", "baz") -- args to send to canFail
 	```
 ]=]
-function Promise.retry(callback: (...any) -> Promise<T>, times: number, ...): Promise
+function LightPromise.retry(callback: (...any) -> Promise<T>, times: number, ...): LightPromise
 	local args, length = { ... }, select("#", ...)
 
-	return Promise.resolve(callback(...)):catch(function(...)
+	return LightPromise.resolve(callback(...)):catch(function(...)
 		if times > 0 then
-			return Promise.retry(callback, times - 1, unpack(args, 1, length))
+			return LightPromise.retry(callback, times - 1, unpack(args, 1, length))
 		else
-			return Promise.reject(...)
+			return LightPromise.reject(...)
 		end
 	end)
 end
@@ -1708,16 +1710,21 @@ end
 
 	If the amount of retries is exceeded, the function will return the latest rejected Promise.
 ]=]
-function Promise.retryWithDelay(callback: (...any) -> Promise<T>, times: number, seconds: number, ...): Promise
+function LightPromise.retryWithDelay(
+	callback: (...any) -> Promise<T>,
+	times: number,
+	seconds: number,
+	...
+): LightPromise
 	local args, length = { ... }, select("#", ...)
 
-	return Promise.resolve(callback(...)):catch(function(...)
+	return LightPromise.resolve(callback(...)):catch(function(...)
 		if times > 0 then
-			Promise.delay(seconds):await()
+			LightPromise.delay(seconds):await()
 
-			return Promise.retryWithDelay(callback, times - 1, seconds, unpack(args, 1, length))
+			return LightPromise.retryWithDelay(callback, times - 1, seconds, unpack(args, 1, length))
 		else
-			return Promise.reject(...)
+			return LightPromise.reject(...)
 		end
 	end)
 end
@@ -1741,12 +1748,12 @@ end
 	end)
 	```
 ]=]
-function Promise.fromEvent(event: Event, predicate: ((...any) -> boolean) | nil): Promise
+function LightPromise.fromEvent(event: Event, predicate: ((...any) -> boolean) | nil): LightPromise
 	predicate = predicate or function()
 		return true
 	end
 
-	return Promise._newWithTraceback(debug.traceback(nil, 2), function(resolve, _, onCancel)
+	return LightPromise._newWithTraceback(debug.traceback(nil, 2), function(resolve, _, onCancel)
 		local connection
 		local shouldDisconnect = false
 
@@ -1789,16 +1796,22 @@ end
 
 	The callback is called with the actual promise that rejected, followed by the rejection values.
 ]=]
-function Promise.onUnhandledRejection(callback: (promise: Promise, ...any) -> ...any): () -> nil
-	table.insert(Promise._unhandledRejectionCallbacks, callback)
+function LightPromise.onUnhandledRejection(callback: (promise: LightPromise, ...any) -> ...any): () -> nil
+	table.insert(LightPromise._unhandledRejectionCallbacks, callback)
 
 	return function()
-		local index = table.find(Promise._unhandledRejectionCallbacks, callback)
+		local index = table.find(LightPromise._unhandledRejectionCallbacks, callback)
 
 		if index then
-			table.remove(Promise._unhandledRejectionCallbacks, index)
+			table.remove(LightPromise._unhandledRejectionCallbacks, index)
 		end
 	end
 end
 
-return Promise
+local exports = {
+	LightPromise = LightPromise,
+}
+
+table.freeze(exports)
+
+return exports
